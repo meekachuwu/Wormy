@@ -1,12 +1,9 @@
 "use strict";
 
-paper.install(window);
-
 const game = new Game();
 
-window.onload = async function () {
-	await game.load();
-	game.start();
+window.onload = function () {
+	game.init();
 };
 
 window.game = game;

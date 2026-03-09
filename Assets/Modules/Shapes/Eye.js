@@ -10,65 +10,84 @@ class Eye {
 			open: true,
 			blink: { time: 0, delay: settings.worm?.behavior?.blink?.delay ?? 6000, duration: settings.worm?.behavior?.blink?.duration ?? 220 }
 		};
-		this.size = { radius: Math.max(settings.worm?.proportions?.eyes ?? 4, thickness / 24) };
-		this.offset = { spread: thickness / 7, forward: thickness / 10 };
+		this.size = { radius: Math.max(settings.worm?.proportions?.eyes ?? 4, thickness / 8) };
+		this.offset = {
+			spread: thickness * 0.62 + this.size.radius,
+			forward: Math.max(10, thickness * 0.08)
+		};
 		this.shape = null;
-		this.position = { x: 0, y: 0 };
+		this.position = new paper.Point(0, 0);
 	}
 
 	create() {
-		this.shape = new paper.Path.Circle({ radius: this.size.radius, fillColor: this.state.color });
-		this.shape.applyMatrix = false;
+		this.shape = null;
 	}
 
 	setcolor(value) {
-		this.state.color = value;
+		this.state.color = "white";
 		if (this.shape) {
-			this.shape.fillColor = value;
+			this.shape.fillColor = "white";
 		}
+	}
+
+	isvalidsegment(segment) {
+		return Boolean(
+			segment &&
+			segment.point &&
+			typeof segment.point.x === "number" &&
+			typeof segment.point.y === "number"
+		);
 	}
 
 	updateblink() {
-		this.state.blink.time += this.settings.physics?.tick ?? 16;
-		const phase = this.state.blink.time / this.state.blink.duration;
-
-		switch (true) {
-			case this.state.open && this.state.blink.time >= this.state.blink.delay:
-				this.state.open = false;
-				this.state.blink.time = 0;
-				break;
-			case !this.state.open && phase >= 1:
-				this.state.open = true;
-				this.state.blink.time = 0;
-				break;
-			default:
-				break;
-		}
-
-		switch (true) {
-			case this.state.open:
-				this.state.height += (1 - this.state.height) * (this.settings.ease?.eye ?? 0.25);
-				break;
-			default:
-				this.state.height += (0.1 - this.state.height) * 0.55;
-				break;
-		}
+		// Blink disabled: keep eyes fully open.
+		this.state.open = true;
+		this.state.height = 1;
 	}
 
 	draw(segment) {
-		const angle = segment.angle + Math.PI / 2;
-		const direction = this.side === "left" ? 1 : -1;
-		const base = {
-			x: segment.point.x + Math.cos(segment.angle) * this.offset.forward,
-			y: segment.point.y + Math.sin(segment.angle) * this.offset.forward
-		};
+		try {
+			if (!this.isvalidsegment(segment)) {
+				return false;
+			}
 
-		this.position.x = base.x + Math.cos(angle) * this.offset.spread * direction;
-		this.position.y = base.y + Math.sin(angle) * this.offset.spread * direction;
+			const direction = this.side === "left" ? 1 : -1;
+			const fixedX = 150 + (direction === 1 ? 50 : -50);
+			const fixedY = 80;
+			this.position = new paper.Point(fixedX, fixedY);
 
-		if (this.shape) {
-			this.shape.position = new paper.Point(this.position.x, this.position.y);
-			this.shape.scaling = new paper.Point(1, this.state.height);
+			if (!Number.isFinite(this.position.x) || !Number.isFinite(this.position.y)) {
+				return false;
+			}
+
+			const view = paper.view?.size;
+			if (view) {
+				const radius = this.size.radius;
+				this.position.x = Math.max(radius, Math.min(view.width - radius, this.position.x));
+				this.position.y = Math.max(radius, Math.min(view.height - radius, this.position.y));
+			}
+
+			if (this.shape && typeof this.shape.remove === "function") {
+				this.shape.remove();
+			}
+
+			this.shape = new paper.Path.Circle({
+				center: this.position,
+				radius: this.size.radius
+			});
+			this.shape.fillColor = "white";
+			this.shape.strokeColor = "black";
+			this.shape.strokeWidth = Math.max(2, this.size.radius * 0.2);
+			this.shape.opacity = 1;
+			this.shape.visible = true;
+			if (paper.project?.activeLayer) {
+				paper.project.activeLayer.addChild(this.shape);
+			}
+
+			return true;
+		} catch (error) {
+			console.warn("Eye.draw() skipped invalid frame", error);
+			return false;
 		}
 	}
 }

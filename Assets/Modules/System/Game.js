@@ -2,75 +2,60 @@
 
 class Game {
 	constructor() {
-		this.file = new File();
-		this.config = null;
-		this.scene = new Scene();
-		this.physics = new Physics();
-		this.controls = { mouse: new Mouse() };
-		this.motion = {
-			segment: { length: 0 },
-			stress: { level: 0, easing: 0.01 },
-			hue: { value: 0 },
-			peak: { active: false }
+		this.canvas = null;
+		this.ctx = null;
+		this.config = {
+			worm: {
+				size: 1,
+				color: { body: "black", mouth: "black", tongue: "crimson", eyes: "white" },
+				proportions: { fat: 250, eyes: 20, body: 8, mouth: 4, tongue: 2 }
+			},
+			physics: { tick: 16, gravity: [0, 0.1], drag: 0.98 }
 		};
-		this.structure = { particles: [], support: { upper: [], lower: [] }, springs: [] };
 		this.worm = null;
+		this.mouseX = 0;
+		this.mouseY = 0;
+		this.running = false;
 	}
 
-	async load() {
-		this.config = await this.file.load("Assets/config.yaml");
-		this.motion.stress.easing = this.config.ease?.stress ?? this.motion.stress.easing;
-		this.physics.configure(this.config);
-		this.controls.mouse.configure(this.config);
-		return this.config;
-	}
-
-	start() {
-		const canvas = document.getElementById("canvas");
-		paper.setup(canvas);
-		this.scene.create();
-		this.motion.segment.length = this.segmentlength();
-		this.controls.mouse.reset(this.motion.segment.length);
-		this.physics.create();
-
+	init() {
+		this.canvas = document.getElementById("canvas");
+		this.ctx = this.canvas.getContext("2d");
+		this.resizeCanvas();
+		
 		this.worm = new Worm(this.config);
-		this.worm.physics = this.physics;
-		this.worm.motion = this.motion;
-		this.worm.mouse = this.controls.mouse;
-		this.worm.structure = this.structure;
-		this.worm.create();
-		this.worm.build();
-		this.bind();
+		this.worm.init(this.canvas.width / 2, this.canvas.height * 0.8);
+		
+		this.running = true;
+		this.setupEventListeners();
+		this.animate();
 	}
 
-	bind() {
-		setInterval(() => {
-			this.physics.tickonce(1);
-			this.worm.updateappearance();
-			this.worm.updatebody();
-		}, this.physics.tick);
-
-		const tool = new Tool();
-		tool.onMouseMove = (event) => {
-			this.controls.mouse.updatetarget(event, this.motion.segment.length);
-		};
-
-		paper.view.onResize = () => {
-			this.motion.segment.length = this.segmentlength();
-			if (this.structure.particles[0]) {
-				this.structure.particles[0].position.x = paper.view.size.width / 2;
-				this.structure.particles[0].position.y = paper.view.size.height + this.motion.segment.length;
-			}
-			this.controls.mouse.reset(this.motion.segment.length);
-		};
-
-		paper.view.onFrame = () => {
-			this.worm.updatepath();
-		};
+	resizeCanvas() {
+		this.canvas.width = window.innerWidth;
+		this.canvas.height = window.innerHeight;
 	}
 
-	segmentlength() {
-		return paper.view.size.height / this.worm.dimensions.body.segments * 0.7;
+	setupEventListeners() {
+		window.addEventListener("mousemove", (e) => {
+			this.mouseX = e.clientX;
+			this.mouseY = e.clientY;
+			this.worm.setTarget(this.mouseX, this.mouseY);
+		});
+
+		window.addEventListener("resize", () => {
+			this.resizeCanvas();
+		});
+	}
+
+	animate() {
+		this.ctx.fillStyle = "white";
+		this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+		this.worm.update(this.canvas.width, this.canvas.height);
+		this.worm.render(this.ctx);
+
+		requestAnimationFrame(() => this.animate());
 	}
 }
 

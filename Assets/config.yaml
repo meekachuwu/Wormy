@@ -3,10 +3,10 @@ ease:    { stress: 0.01, eye: 0.25, target: 0.5,  drag: 0.2 }
 
 worm:
   size: 1
-  proportions: {fat: 300, eyes: 4, body: 10, mouth: 5, toungue: 2, } # Multiply by size
+  proportions: {fat: 250, eyes: 4, body: 8, mouth: 4, tongue: 2, } # Multiply by size
   color: { eyes: "red", body: "black", mouth: "black", tongue: "crimson" }
   behavior:
       blink: { delay: 6000, duration: 220 }
-      peak: 100
+      peak: 60
   options: { smooth: true, rainbow: true }
       
