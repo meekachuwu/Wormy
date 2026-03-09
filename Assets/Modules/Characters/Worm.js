@@ -69,6 +69,10 @@ class Worm {
 
 			seg.y = Math.min(canvasHeight, seg.y);
 		}
+
+		const tailSegment = this.segments[this.segments.length - 1];
+		tailSegment.x = canvasWidth / 2;
+		tailSegment.y = canvasHeight;
 	}
 
 	render(ctx) {
