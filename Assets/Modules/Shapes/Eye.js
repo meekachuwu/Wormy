@@ -1,56 +1,76 @@
+"use strict";
+
 class Eye {
-	constructor(config, thickness) {
-		this.config = config;
-		this.thickness = thickness || config.worm.dimensions.bodyThickness;
-		this.size = null;
-		this.height = Math.random() * 50 + 50;
-		this.position = null;
-		this.color = config.worm.colors.eyes;
-		this.open = true;
+	constructor(settings, thickness, side) {
+		this.settings = settings;
+		this.side = side;
+		this.state = {
+			color: settings.worm?.color?.eyes ?? "red",
+			height: 1,
+			open: true,
+			blink: { time: 0, delay: settings.worm?.behavior?.blink?.delay ?? 6000, duration: settings.worm?.behavior?.blink?.duration ?? 220 }
+		};
+		this.size = { radius: Math.max(settings.worm?.proportions?.eyes ?? 4, thickness / 24) };
+		this.offset = { spread: thickness / 7, forward: thickness / 10 };
 		this.shape = null;
-		this.blinkTimer = 0;
+		this.position = { x: 0, y: 0 };
 	}
 
 	create() {
-		let radius = Math.max(this.config.worm.eyes.minimumRadius, this.thickness / 24);
-		this.shape = new paper.Path.Circle({ radius: radius, fillColor: this.color });
+		this.shape = new paper.Path.Circle({ radius: this.size.radius, fillColor: this.state.color });
 		this.shape.applyMatrix = false;
 	}
 
-	updateBlinkState() {
-		this.blinkTimer++;
-		
-		if (this.open && this.blinkTimer > Math.random() * 200 + 100) { this.open = false; this.blinkTimer = 0; } 
-		else if (!this.open && this.blinkTimer > 10) { this.open = true; this.blinkTimer = 0; }
-		
-		if (this.open && this.height < 100) { this.height += 5; }
-		else if (!this.open && this.height > 0) { this.height -= 10; }
-		
-		if (this.shape) { this.shape.scaling = new paper.Point(1, this.height / 100); }
+	setcolor(value) {
+		this.state.color = value;
+		if (this.shape) {
+			this.shape.fillColor = value;
+		}
 	}
 
-	setColor(color) {
-		this.color = color;
-		if (this.shape) { this.shape.fillColor = color; }
-	}
+	updateblink() {
+		this.state.blink.time += this.settings.physics?.tick ?? 16;
+		const phase = this.state.blink.time / this.state.blink.duration;
 
-	update() {
-		if (this.shape && this.position) { this.shape.position = this.position; }
+		switch (true) {
+			case this.state.open && this.state.blink.time >= this.state.blink.delay:
+				this.state.open = false;
+				this.state.blink.time = 0;
+				break;
+			case !this.state.open && phase >= 1:
+				this.state.open = true;
+				this.state.blink.time = 0;
+				break;
+			default:
+				break;
+		}
+
+		switch (true) {
+			case this.state.open:
+				this.state.height += (1 - this.state.height) * (this.settings.ease?.eye ?? 0.25);
+				break;
+			default:
+				this.state.height += (0.1 - this.state.height) * 0.55;
+				break;
+		}
 	}
 
 	draw(segment) {
-		let eyeSpread = this.thickness / 7;
-		let eyeForward = this.thickness / 10;
-		let angle = segment.angle + Math.PI / 2;
-		let forwardX = segment.point.x + Math.cos(segment.angle) * eyeForward;
-		let forwardY = segment.point.y + Math.sin(segment.angle) * eyeForward;
+		const angle = segment.angle + Math.PI / 2;
+		const direction = this.side === "left" ? 1 : -1;
+		const base = {
+			x: segment.point.x + Math.cos(segment.angle) * this.offset.forward,
+			y: segment.point.y + Math.sin(segment.angle) * this.offset.forward
+		};
 
-		this.position = new paper.Point(
-			forwardX + Math.cos(angle) * eyeSpread,
-			forwardY + Math.sin(angle) * eyeSpread
-		);
+		this.position.x = base.x + Math.cos(angle) * this.offset.spread * direction;
+		this.position.y = base.y + Math.sin(angle) * this.offset.spread * direction;
 
-		this.shape.scaling = new paper.Point(1, this.height / 100);
-		this.update();
+		if (this.shape) {
+			this.shape.position = new paper.Point(this.position.x, this.position.y);
+			this.shape.scaling = new paper.Point(1, this.state.height);
+		}
 	}
 }
+
+window.Eye = Eye;

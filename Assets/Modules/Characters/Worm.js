@@ -1,18 +1,27 @@
-class Worm {
-	constructor() {
-		this.size = null;
-		this.behavior = null;
-		this.animation = null;
-		this.interaction = null;
-		
-		this.segments	= null;
-		this.body		= null;
-		this.mouth	= null;
-		this.tongue	= null;
-		this.eyes		= { left: null, right: null };
-		this.paths = [];
+"use strict";
 
-		// These will be injected from game
+class Worm {
+	constructor(settings) {
+		this.settings = settings;
+		const size = settings.worm?.size ?? 1;
+		const proportions = settings.worm?.proportions ?? {};
+		this.dimensions = {
+			size: size,
+			thickness: (proportions.fat ?? 300) * size,
+			body: { segments: Math.max(3, Math.round((proportions.body ?? 10) * size)) },
+			mouth: { points: Math.max(2, Math.round((proportions.mouth ?? 5) * size)) },
+			tongue: { points: Math.max(1, Math.round((proportions.tongue ?? proportions.toungue ?? 2) * size * 0.3)) }
+		};
+		this.color = {
+			body: settings.worm?.color?.body ?? "black",
+			mouth: settings.worm?.color?.mouth ?? "black",
+			tongue: settings.worm?.color?.tongue ?? "crimson",
+			eyes: settings.worm?.color?.eyes ?? "red"
+		};
+		this.behavior = { smooth: settings.worm?.options?.smooth ?? true, rainbow: settings.worm?.options?.rainbow ?? true, stress: { limit: settings.worm?.behavior?.peak ?? 100 } };
+		this.animation = { stress: { easing: settings.ease?.stress ?? 0.01 } };
+		this.eyes = { left: null, right: null };
+		this.path = { body: null, mouth: null, tongue: null, list: [] };
 		this.motion = null;
 		this.mouse = null;
 		this.structure = null;
@@ -20,172 +29,185 @@ class Worm {
 	}
 
 	create() {
-		this.eyes.left = new Eye(this.settings, this.dimensions.bodyThickness);
-		this.eyes.right = new Eye(this.settings, this.dimensions.bodyThickness);
+		this.path.body = new Noodle(this.color.body, this.dimensions.thickness);
+		this.path.mouth = new Noodle(this.color.mouth, this.dimensions.thickness / 12);
+		this.path.tongue = new Noodle(this.color.tongue, this.dimensions.thickness / 18);
+		this.path.body.add(this.dimensions.body.segments);
+		this.path.mouth.add(this.dimensions.mouth.points);
+		this.path.tongue.add(this.dimensions.tongue.points);
+		this.path.list = [this.path.body.path, this.path.mouth.path, this.path.tongue.path];
+
+		this.eyes.left = new Eye(this.settings, this.dimensions.thickness, "left");
+		this.eyes.right = new Eye(this.settings, this.dimensions.thickness, "right");
 		this.eyes.left.create();
 		this.eyes.right.create();
-		this.createBody();
-	}
-
-	createBody() {
-		this.body = new paper.Path();
-		this.mouth = new paper.Path();
-		this.tongue = new paper.Path();
-
-		this.body.style = { strokeColor: this.colors.body, strokeWidth: this.dimensions.bodyThickness };
-		this.body.style.strokeCap = this.mouth.style.strokeCap = this.tongue.style.strokeCap = "round";
-
-		this.mouth.style.strokeColor = this.colors.mouth;
-		this.tongue.style.strokeColor = this.colors.tongue;
-		this.mouth.opacity = 0;
-		this.tongue.opacity = 0;
-
-		this.paths.push(this.body, this.mouth, this.tongue);
 	}
 
 	build() {
-		for (var i = 0; i < this.dimensions.bodySegmentCount; i++) {
-			var position = {};
-			position.x = paper.view.size.width / 2;
-			position.y = paper.view.size.height - (i - 1) * this.motion.segmentLength;
+		for (let index = 0; index < this.dimensions.body.segments; index++) {
+			const x = paper.view.size.width / 2;
+			const y = paper.view.size.height - (index - 1) * this.motion.segment.length;
+			const particle = this.physics.system.makeParticle(2.5, x, y, 0);
+			const upper = this.physics.system.makeParticle(1, x, y - this.motion.segment.length, 0);
+			const lower = this.physics.system.makeParticle(1, x, y + this.motion.segment.length, 0);
 
-			var particle = {};
-			particle.body = this.physics.system.makeParticle(2.5, position.x, position.y, 0);
-
-			var support = {};
-			support.upper = this.physics.system.makeParticle(1, position.x, position.y - this.motion.segmentLength, 0);
-			support.lower = this.physics.system.makeParticle(1, position.x, position.y + this.motion.segmentLength, 0);
-
-			if (i > 0) {
-				var previous = {};
-				previous.upper = this.structure.support.upper[i - 1];
-				previous.body = this.structure.particles[i - 1];
-
-				this.physics.system.makeSpring(particle.body, previous.upper, 0.6, 0.48, 0);
-				this.physics.system.makeSpring(previous.body, support.lower, 0.3, 0.7, 0);
-				this.structure.springs.push(this.physics.system.makeSpring(particle.body, previous.body, 0.2, 0.1, this.motion.segmentLength));
+			switch (true) {
+				case index > 0:
+					this.physics.system.makeSpring(particle, this.structure.support.upper[index - 1], 0.6, 0.48, 0);
+					this.physics.system.makeSpring(this.structure.particles[index - 1], lower, 0.3, 0.7, 0);
+					this.structure.springs.push(this.physics.system.makeSpring(particle, this.structure.particles[index - 1], 0.2, 0.1, this.motion.segment.length));
+					break;
+				default:
+					break;
 			}
 
-			if (i < 2) { particle.body.makeFixed(); }
-			support.upper.makeFixed(); support.lower.makeFixed();
+			switch (true) {
+				case index < 2:
+					particle.makeFixed();
+					break;
+				default:
+					break;
+			}
 
-			this.body.add(new paper.Point());
-			this.structure.particles.push(particle.body);
-			this.structure.support.upper.push(support.upper);
-			this.structure.support.lower.push(support.lower);
+			upper.makeFixed();
+			lower.makeFixed();
+			this.structure.particles.push(particle);
+			this.structure.support.upper.push(upper);
+			this.structure.support.lower.push(lower);
 		}
-
-		for (var i = 0; i < this.dimensions.mouthPointCount; i++) {
-			this.mouth.add(new paper.Point());
-			if (i < this.dimensions.mouthPointCount * 0.3) { this.tongue.add(new paper.Point()); } }
 	}
 
-	updateBodyPositions() {
-		var easing = this.interaction.mouseTargetEasing;
-		this.mouse.position.x += (this.mouse.target.position.x - this.mouse.position.x) * easing;
-		this.mouse.position.y += (this.mouse.target.position.y - this.mouse.position.y) * easing;
-
+	updatebody() {
+		this.mouse.updateposition();
 		this.structure.particles[1].position.x = this.mouse.position.x;
 		this.structure.particles[1].position.y = this.mouse.position.y;
 
-		var target = { stress: 0 };
-		for (var i = 1; i < this.dimensions.bodySegmentCount; i++) {
-			var support = {};
-			support.upper = this.structure.support.upper[i];
-			var current = this.structure.particles[i];
-			var previous = this.structure.particles[i - 1];
-			var angle = Math.atan2(
-				current.position.y - previous.position.y,
-				current.position.x - previous.position.x
-			);
-			var force = current.force.length();
-			if (i > 1) {
-				target.stress += force;
+		let stress = 0;
+		for (let index = 1; index < this.dimensions.body.segments; index++) {
+			const current = this.structure.particles[index];
+			const previous = this.structure.particles[index - 1];
+			const angle = Math.atan2(current.position.y - previous.position.y, current.position.x - previous.position.x);
+			const upper = this.structure.support.upper[index];
+			const lower = this.structure.support.lower[index];
+
+			upper.position.x = current.position.x + Math.cos(angle) * this.motion.segment.length;
+			upper.position.y = current.position.y + Math.sin(angle) * this.motion.segment.length;
+			lower.position.x = current.position.x + Math.cos(Math.PI + angle) * this.motion.segment.length;
+			lower.position.y = current.position.y + Math.sin(Math.PI + angle) * this.motion.segment.length;
+			this.path.body.path.segments[index].angle = angle;
+
+			switch (true) {
+				case index > 1:
+					stress += current.force.length();
+					break;
+				default:
+					break;
 			}
-
-			support.upper.position.x = current.position.x + Math.cos(angle) * this.motion.segmentLength;
-			support.upper.position.y = current.position.y + Math.sin(angle) * this.motion.segmentLength;
-			this.body.segments[i].angle = angle;
-
-			support.lower = this.structure.support.lower[i];
-			support.lower.position.x = current.position.x + Math.cos(Math.PI + angle) * this.motion.segmentLength;
-			support.lower.position.y = current.position.y + Math.sin(Math.PI + angle) * this.motion.segmentLength;
 		}
 
-		this.motion.stressLevel += (target.stress - this.motion.stressLevel) * this.animation.stressEasing;
-		if (this.eyes.left && this.eyes.right) {
-			var eyeSegment = this.body.segments[this.dimensions.bodySegmentCount - 3];
-			this.eyes.left.draw(eyeSegment);
-			this.eyes.right.draw(eyeSegment);
+		this.motion.stress.level += (stress - this.motion.stress.level) * this.animation.stress.easing;
+		const segment = this.path.body.path.segments[this.dimensions.body.segments - 3];
+		this.eyes.left.draw(segment);
+		this.eyes.right.draw(segment);
+	}
+
+	updateappearance() {
+		this.eyes.left.updateblink();
+		this.eyes.right.updateblink();
+
+		switch (true) {
+			case this.motion.stress.level > this.behavior.stress.limit:
+				this.peakon();
+				break;
+			default:
+				this.peakoff();
+				break;
 		}
 	}
 
-	updateAppearance() {
-		if (this.eyes.left) this.eyes.left.updateBlinkState();
-		if (this.eyes.right) this.eyes.right.updateBlinkState();
-		if (this.motion.stressLevel > this.behavior.stressLimit) {
-			if (this.behavior.rainbowEnabled) {
-				this.motion.hueValue = Math.round(++this.motion.hueValue) % 360;
-				this.body.strokeColor = "hsl(" + this.motion.hueValue + ", 100%, 40%)";
-				this.mouth.strokeColor = "hsl(" + this.motion.hueValue + ", 100%, 10%)";
-				this.tongue.strokeColor = "hsl(" + this.motion.hueValue + ", 100%, 60%)";
-				if (this.eyes.left) this.eyes.left.setColor("hsl(" + this.motion.hueValue + ", 100%, 50%)");
-				if (this.eyes.right) this.eyes.right.setColor("hsl(" + this.motion.hueValue + ", 100%, 50%)");
-			}
-			if (!this.motion.isPeaking) {
-				this.motion.isPeaking = true;
+	peakon() {
+		switch (true) {
+			case this.behavior.rainbow:
+				this.motion.hue.value = Math.round((this.motion.hue.value + 1)) % 360;
+				this.path.body.path.strokeColor = "hsl(" + this.motion.hue.value + ", 100%, 40%)";
+				this.path.mouth.path.strokeColor = "hsl(" + this.motion.hue.value + ", 100%, 10%)";
+				this.path.tongue.path.strokeColor = "hsl(" + this.motion.hue.value + ", 100%, 60%)";
+				this.eyes.left.setcolor("hsl(" + this.motion.hue.value + ", 100%, 50%)");
+				this.eyes.right.setcolor("hsl(" + this.motion.hue.value + ", 100%, 50%)");
+				break;
+			default:
+				break;
+		}
+
+		switch (true) {
+			case !this.motion.peak.active:
+				this.motion.peak.active = true;
 				document.body.className = "fadeIn";
-				this.body.strokeColor = "red";
-				this.physics.system.drag = this.settings.worm.physics.dragAtPeak;
-				this.mouth.opacity = 0.5;
-				this.tongue.opacity = 0.5;
-			}
+				this.physics.setpeak(true);
+				this.path.mouth.path.opacity = 0.5;
+				this.path.tongue.path.opacity = 0.5;
+				break;
+			default:
+				break;
+		}
 
-			this.mouth.strokeWidth = this.dimensions.thickness / 1.5 + Math.random() * 10;
-			this.tongue.strokeWidth = this.mouth.strokeWidth * 0.65;
-		} else {
-			if (this.motion.isPeaking) {
-				this.motion.isPeaking = false;
+		this.path.mouth.path.strokeWidth = this.dimensions.thickness / 1.5 + Math.random() * 10;
+		this.path.tongue.path.strokeWidth = this.path.mouth.path.strokeWidth * 0.65;
+	}
+
+	peakoff() {
+		switch (true) {
+			case this.motion.peak.active:
+				this.motion.peak.active = false;
 				document.body.className = "fadeOut";
-				this.body.strokeColor = this.colors.body;
-				this.physics.system.drag = this.settings.worm.physics.dragAtRest;
-				this.mouth.opacity = 0;
-				this.tongue.opacity = 0;
-				if (this.eyes.left) this.eyes.left.setColor(this.colors.eyes);
-				if (this.eyes.right) this.eyes.right.setColor(this.colors.eyes);
-			}
+				this.path.body.path.strokeColor = this.color.body;
+				this.physics.setpeak(false);
+				this.path.mouth.path.opacity = 0;
+				this.path.tongue.path.opacity = 0;
+				this.eyes.left.setcolor(this.color.eyes);
+				this.eyes.right.setcolor(this.color.eyes);
+				break;
+			default:
+				break;
 		}
 	}
 
-	updatePathPoints() {
-		for (var i = 0; i < this.dimensions.bodySegmentCount; i++) {
-			var current = this.structure.particles[i];
-			var angle = this.body.segments[i].angle + Math.PI;
-			this.body.segments[i].point.x = current.position.x;
-			this.body.segments[i].point.y = current.position.y;
+	updatepath() {
+		for (let index = 0; index < this.dimensions.body.segments; index++) {
+			const current = this.structure.particles[index];
+			const angle = this.path.body.path.segments[index].angle + Math.PI;
+			this.path.body.set(index, current.position.x, current.position.y);
 
-			var mouth = { i: i - 1 };
-			if (mouth.i >= 0 && mouth.i < this.mouth.segments.length) {
-				this.mouth.segments[mouth.i].point.x = current.position.x;
-				this.mouth.segments[mouth.i].point.y = current.position.y;
-				this.mouth.segments[mouth.i].point.x += Math.cos(angle) * this.dimensions.thickness / 12;
-				this.mouth.segments[mouth.i].point.y += Math.sin(angle) * this.dimensions.thickness / 12;
+			const mouthindex = index - 1;
+			switch (true) {
+				case mouthindex >= 0 && mouthindex < this.path.mouth.path.segments.length:
+					this.path.mouth.set(
+						mouthindex,
+						current.position.x + Math.cos(angle) * this.dimensions.thickness / 12,
+						current.position.y + Math.sin(angle) * this.dimensions.thickness / 12
+					);
+					break;
+				default:
+					break;
+			}
 
-				if (this.tongue.segments[mouth.i]) {
-					this.tongue.segments[mouth.i].point.x = this.mouth.segments[mouth.i].point.x;
-					this.tongue.segments[mouth.i].point.y = this.mouth.segments[mouth.i].point.y;
-					this.tongue.segments[mouth.i].point.x -= Math.cos(angle) * (this.mouth.strokeWidth / 12);
-					this.tongue.segments[mouth.i].point.y -= Math.sin(angle) * (this.mouth.strokeWidth / 12);
-				}
+			switch (true) {
+				case mouthindex >= 0 && mouthindex < this.path.tongue.path.segments.length:
+					this.path.tongue.set(
+						mouthindex,
+						this.path.mouth.path.segments[mouthindex].point.x - Math.cos(angle) * (this.path.mouth.path.strokeWidth / 12),
+						this.path.mouth.path.segments[mouthindex].point.y - Math.sin(angle) * (this.path.mouth.path.strokeWidth / 12)
+					);
+					break;
+				default:
+					break;
 			}
 		}
 
-		if (this.behavior.smoothPaths) {
-			for (var i = 0; i < this.paths.length; i++) {
-				this.paths[i].smooth();
-			}
-		}
+		this.path.body.smooth(this.behavior.smooth);
+		this.path.mouth.smooth(this.behavior.smooth);
+		this.path.tongue.smooth(this.behavior.smooth);
 	}
-
-	calculateSegmentLength() { return paper.view.size.height / this.dimensions.bodySegmentCount * 0.7; }
 }
+
+window.Worm = Worm;
