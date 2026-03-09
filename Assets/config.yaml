@@ -1,33 +1,12 @@
+physics: { tick: 16, gravity: [ 0.34, -3 ], drag: 0.8 }
+ease:    { stress: 0.01, eye: 0.25, target: 0.5,  drag: 0.2 }
+
 worm:
+  size: 1
+  proportions: {fat: 300, eyes: 4, body: 10, mouth: 5, toungue: 2, } # Multiply by size
+  color: { eyes: "red", body: "black", mouth: "black", tongue: "crimson" }
   behavior:
-    smoothPaths: true
-    rainbowEnabled: true
-    stressLimit: 100
-  dimensions:
-    sizeMultiplier: 1.5
-    bodyThickness: 300
-    bodySegmentCount: 10
-    mouthPointCount: 5
-  colors:
-    body: "black"
-    mouth: "black"
-    tongue: "crimson"
-    eyes: "red"
-  eyes:
-    minimumRadius: 4
-    blinkDelayMilliseconds: 6000
-    blinkDurationMilliseconds: 220
-    blinkMinimumHeightScale: 0.1
-  interaction:
-    mouseTargetEasing: 0.5
-  physics:
-    gravity:
-      x: 0.34
-      y: -3
-      z: 0
-    dragAtRest: 0.8
-    dragAtPeak: 0.2
-  animation:
-    physicsTickMilliseconds: 16
-    stressEasing: 0.01
-    eyeRecoveryEasing: 0.25
+      blink: { delay: 6000, duration: 220 }
+      peak: 100
+  options: { smooth: true, rainbow: true }
+      

@@ -1,25 +1,44 @@
-<!DOCTYPE html>
-<html lang="en">
+<html>
+
 <head>
 	<title>Wormy</title>
-	
-	<meta name="Description" content="A non-seizure inducing version of StaggeringBeauty">
+
+	<meta name="description" content="A non-seizure inducing version of StaggeringBeauty">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta charset="utf-8">
 
 	<link href="Assets/style.css" rel="stylesheet">
 	
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.22/paper.min.js"></script>
-	<script src="https://code.createjs.com/1.0.0/tweenjs.js"></script>
-	<script src="https://jonobr1.com/Physics/build/physics.min.js"></script>
-	<script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+	<script src="https://code.createjs.com/1.0.0/tweenjs.js">												</script>
+	<script src="https://jonobr1.com/Physics/build/physics.min.js">									</script>
+	<script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js">		</script>
 
-	<script src="Assets/config-loader.js"></script>
-	<script src="Assets/classes/WormEyeController.js"></script>
-	<script src="Assets/classes/WormApplication.js"></script>
-	<script src="Assets/script.js"></script>
+	<!-- System Modules -->
+	<script src="Assets/Modules/System/Types.js"></script>
+	<script src="Assets/Modules/System/Physics.js"></script>
+	<script src="Assets/Modules/System/Controls.js"></script>
+	<script src="Assets/Modules/System/Game.js"></script>
+
+	<!-- Shape Modules -->
+	<script src="Assets/Modules/Shapes/Eye.js"></script>
+	<script src="Assets/Modules/Shapes/Noodle.js"></script>
+
+	<!-- Character Modules -->
+	<script src="Assets/Modules/Characters/Worm.js"></script>
+
+	<!-- Environment Modules -->
+	<script src="Assets/Modules/Environment/Scene.js"></script>
+
+	<!-- Config -->
+	<script src="Assets/config.js"></script>
+
+	<!-- Main Bootstrap -->
+	<script src="Assets/index.js"></script>
 </head>
+
 <body>
 	<canvas id="canvas" resize></canvas>
 </body>
+
 </html>
